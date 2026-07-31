@@ -1,35 +1,38 @@
-Every `check_interval_ticks`, the server walks each unordered pair of online players and casts
-one ray between their eye positions. Pairs in different dimensions, and pairs further apart
-than `max_distance`, are skipped and any override they were carrying is removed. One ray
-serves both directions, which halves the work.
+Every `check_interval_ticks`, the server walks each pair of online players, plus each named
+mob or armour stand near each player if `cull_entity_nametags` is on, and casts a ray for
+each. Pairs in different dimensions, and pairs further apart than `max_distance`, are skipped
+and any override they were carrying is removed.
 
-Hiding is done in one of two ways, because neither one covers both cases.
+**The ray ends at the nametag, not at the eyes.** The tag floats above the head, so an eye to
+eye test answers the wrong question in both directions: a player crouched behind a one-block
+wall whose tag is plainly visible would be hidden, and one whose eyes cleared a ledge but
+whose tag did not would be shown. The end point is read from the entity's own `NAME_TAG`
+attachment, which is the same point the client renders against. That makes the test
+asymmetric, so a player pair costs two rays rather than one.
 
-**Line of sight blocked: force the sneaking flag.** Vanilla clients never draw a sneaking
-player's nametag through blocks, so the server sends the viewer a metadata packet with the
-sneaking bit set on the target, and the client applies its own existing rule. While the
-override is on, every later metadata packet for that entity is rewritten on its way out so a
-routine sync cannot clear it. When sight comes back, the target's real flags are sent and the
-pose corrects immediately.
+**Glass is not a wall.** The occlusion test is not the game's usual collision raycast, which
+asks "would I walk into this" and answers yes for glass, panes and iron bars. A block hides a
+nametag if it has a collision shape and is **not** in the `#culltag:transparent` block tag.
+See [Configuration](Configuration) for what is in that tag and how to change it.
 
-**Crouching: a per-viewer scoreboard team.** The sneak trick cannot help here, because vanilla
-still draws a sneaking player's nametag at close range with a clear view, which is exactly the
-case `crouch_hides_nametag` is for. Instead CullTag creates a real team called
-`culltag_hidden` with `nametagVisibility=NEVER` and never puts anyone on it server-side. Team
-membership packets are clientbound, so the server can tell one client that a player is on that
-team while telling everyone else nothing. See [Compatibility](Compatibility) for what this
-costs.
+**Hiding is one trick, used for everything.** A client never draws a sneaking entity's nametag
+through blocks, so the server sends the viewer a metadata packet with the sneaking bit set on
+the target and the client applies its own existing rule. While the override is on, every later
+metadata packet for that entity is rewritten on its way out so a routine sync cannot clear it.
+When sight comes back, the target's real flags are sent. The bit is read by the renderer for
+every entity type, not just players, which is why named mobs and armour stands work with no
+second mechanism. It is also not the crouch pose, which comes from a separate field, so a
+hidden player is not made to look crouched.
 
-Two things worth knowing about the cost:
+Three things worth knowing about the cost:
 
-- **There is no caching between sweeps.** Every in-range pair is recast every time. An earlier
+- **There is no cache between sweeps.** Everything in range is recast every time. An earlier
   version skipped the ray when a pair was already blocked and neither player had moved, which
   was wrong: a door opening or a block breaking restores sight without either player moving,
-  and those pairs stayed hidden forever. Recasting is measurably cheap enough that the trade
-  is not close.
+  and those pairs stayed hidden forever. Recasting is cheap enough that the trade is not close.
 - **Packets are only sent on a change.** The sweep is constant work; the network traffic is
-  proportional to how often players actually walk in and out of cover.
+  proportional to how often things actually move in and out of cover.
+- **Spectators, invisible entities and anything past 64 blocks are skipped before the ray.**
+  None of them can have a nametag drawn, so a ray would decide nothing.
 
-The ray uses block collision shapes and ignores fluids, so water and lava do not block a
-nametag but glass does. It also runs eye to eye rather than eye to nametag, so a player whose
-tag pokes above a one-block wall is still treated as hidden.
+Fluids are ignored, so water and lava never hide a nametag.

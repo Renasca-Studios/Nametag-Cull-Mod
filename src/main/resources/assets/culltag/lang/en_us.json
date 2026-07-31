@@ -1,7 +1,7 @@
 {
   "culltag.chat.line": "%1$s | %2$s",
   "culltag.command.enable": "Nametag culling enabled.",
-  "culltag.command.disable": "Nametag culling disabled. Line-of-sight overrides restored: %1$s. Crouch overrides restored: %2$s.",
+  "culltag.command.disable": "Nametag culling disabled. Nametags restored: %1$s.",
   "culltag.command.reload": "Config reloaded: %1$s",
-  "culltag.command.stats": "Sweeps: %1$s, raycasts: %2$s, last sweep: %3$s ms, average sweep: %4$s ms, hidden by line of sight: %5$s, hidden by crouch: %6$s"
+  "culltag.command.stats": "Sweeps: %1$s, rays: %2$s, last sweep: %3$s ms, average sweep: %4$s ms, nametags hidden: %5$s"
 }

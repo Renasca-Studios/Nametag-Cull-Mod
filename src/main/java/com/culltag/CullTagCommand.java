@@ -42,8 +42,7 @@ public final class CullTagCommand {
         CullTagConfig.save(CullTagMod.LOGGER);
         List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
         int restored = NametagManager.restoreAll(players);
-        int unhidden = CrouchHider.restoreAll(players);
-        ctx.getSource().sendSuccess(() -> CullTagText.disabled(restored, unhidden), true);
+        ctx.getSource().sendSuccess(() -> CullTagText.disabled(restored), true);
         return 1;
     }
 
@@ -51,9 +50,7 @@ public final class CullTagCommand {
         boolean wasEnabled = CullTagConfig.enabled;
         CullTagConfig.reload(CullTagMod.LOGGER);
         if (wasEnabled && !CullTagConfig.enabled) {
-            List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
-            NametagManager.restoreAll(players);
-            CrouchHider.restoreAll(players);
+            NametagManager.restoreAll(ctx.getSource().getServer().getPlayerList().getPlayers());
         }
         ctx.getSource().sendSuccess(() -> CullTagText.reloaded(CullTagConfig.summary()), true);
         return 1;
@@ -64,11 +61,10 @@ public final class CullTagCommand {
         List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
         Component message = CullTagText.stats(
                 s.totalSweeps(),
-                s.totalRaycasts(),
+                s.totalRays(),
                 millis(s.lastSweepMs()),
                 millis(s.avgSweepMs()),
-                NametagManager.countHidden(players),
-                CrouchHider.countHidden(players));
+                NametagManager.countHidden(players));
         ctx.getSource().sendSuccess(() -> message, false);
         return 1;
     }

@@ -49,19 +49,11 @@ public abstract class ServerCommonPacketListenerImplMixin implements NametagCont
     @Unique
     private final Set<Integer> culltag_hiddenEntityIds = ConcurrentHashMap.newKeySet();
 
-    @Unique
-    private final Set<String> culltag_crouchHiddenNames = ConcurrentHashMap.newKeySet();
-
     // NametagController ───────────────────────────────────────────────────────
 
     @Override
     public Set<Integer> culltag_getHiddenEntityIds() {
         return culltag_hiddenEntityIds;
-    }
-
-    @Override
-    public Set<String> culltag_getCrouchHiddenNames() {
-        return culltag_crouchHiddenNames;
     }
 
     /**

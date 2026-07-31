@@ -1,26 +1,22 @@
 <h1 align="center">CullTag</h1>
 <h3 align="center">True Server-Side Nametag Culling for Fair Play</h3>
 
-Vanilla Minecraft gives every player a free, built-in wallhack: nametags visible through solid blocks. **CullTag** fixes this unfair advantage with highly optimized, server-side raycasting. 
+Vanilla Minecraft gives every player a free, built-in wallhack: nametags visible through solid blocks. **CullTag** fixes this unfair advantage with highly optimized, server-side raycasting.
 
-If a player is hiding behind a wall, their nametag is gone. It’s that simple. 
+If a player is hiding behind a wall, their nametag is gone. It’s that simple.
 
 Because all calculations and packet interceptions happen entirely on the server, **your players don't need to install anything.** They can connect with a 100% vanilla client and immediately experience fairer gameplay, making it perfect for SMPs, PvP arenas, and hardcore survival servers.
 
 ## Key Features
 
 * **Zero Client Setup:** 100% server-side. Vanilla and modded clients both see the correct, culled nametags automatically.
-* **Engineered for Performance:** Raycasting can be heavy, so CullTag is built to protect your server's TPS. It utilizes **symmetric LOS** (calculating only one ray per pair of players instead of two) and only runs a sweep every few ticks - typical cost is well under a millisecond.
-* **Crouch to Hide:** Crouching players have their nametag hidden from everyone entirely, regardless of line of sight - great for staying unseen. Enabled by default and fully optional.
-* **Live Configuration:** `config/culltag.properties` holds `enabled`, `max_distance`, `check_interval_ticks` and `crouch_hides_nametag`.
+* **Aimed at the nametag, not the eyes:** the ray ends where the tag actually floats, so a tag peeking over a wall stays visible and one hidden behind it does not.
+* **Glass is not a wall:** panes, bars, chains and ladders never hide a nametag. Which blocks count is a datapack tag, `#culltag:transparent`, so you can change it without waiting for a release.
+* **Named mobs too:** a named mob or armour stand is the same wallhack as a player. `cull_entity_nametags` covers them, and leaves invisible ones alone so hologram stands stay readable.
+* **Engineered for Performance:** sweeps run every few ticks, skip spectators and anything invisible, and never look past the 64 blocks at which vanilla stops drawing nametags. Typical cost is well under a millisecond.
+* **Live Configuration:** `config/culltag.properties` holds `enabled`, `max_distance`, `check_interval_ticks` and `cull_entity_nametags`.
 * **Hot-Swappable:** Toggle the entire system or reload config changes live without ever needing to restart your server.
 * **Built-in Profiling:** Monitor exactly how the mod is operating under the hood with built-in performance metrics.
-
-## How It Works
-
-Every few ticks, the server quietly casts a ray between each pair of online players. If that ray intersects with a block, the server intercepts the vanilla network packets and hides the target's nametag from the viewer. The exact moment a player steps out of cover and Line of Sight (LOS) is restored, the server updates the packet and the nametag seamlessly reappears.
-
-When `crouch_hides_nametag` is enabled (the default), a crouching player's nametag is hidden from everyone outright - no line-of-sight check needed.
 
 ## Commands
 

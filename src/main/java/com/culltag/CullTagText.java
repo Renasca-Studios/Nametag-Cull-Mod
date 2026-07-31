@@ -36,11 +36,11 @@ public final class CullTagText {
                 "Nametag culling enabled."));
     }
 
-    public static Component disabled(int losRestored, int crouchRestored) {
+    public static Component disabled(int restored) {
         return line(Component.translatableWithFallback(
                 "culltag.command.disable",
-                "Nametag culling disabled. Line-of-sight overrides restored: %1$s. Crouch overrides restored: %2$s.",
-                losRestored, crouchRestored));
+                "Nametag culling disabled. Nametags restored: %1$s.",
+                restored));
     }
 
     /** {@code settingsSummary} is operator diagnostics whose labels are the config file's own
@@ -53,11 +53,11 @@ public final class CullTagText {
                 settingsSummary));
     }
 
-    public static Component stats(long sweeps, long raycasts, String lastSweepMs, String avgSweepMs,
-                                  int losHidden, int crouchHidden) {
+    public static Component stats(long sweeps, long rays, String lastSweepMs, String avgSweepMs,
+                                  int hidden) {
         return line(Component.translatableWithFallback(
                 "culltag.command.stats",
-                "Sweeps: %1$s, raycasts: %2$s, last sweep: %3$s ms, average sweep: %4$s ms, hidden by line of sight: %5$s, hidden by crouch: %6$s",
-                sweeps, raycasts, lastSweepMs, avgSweepMs, losHidden, crouchHidden));
+                "Sweeps: %1$s, rays: %2$s, last sweep: %3$s ms, average sweep: %4$s ms, nametags hidden: %5$s",
+                sweeps, rays, lastSweepMs, avgSweepMs, hidden));
     }
 }

@@ -295,6 +295,49 @@ def check_viewer_state_listed() -> None:
         )
 
 
+# ------------------------------------------------------------ datapack tags exist
+def check_tag_files_exist() -> None:
+    """A TagKey whose datapack file is missing resolves to an empty tag, silently.
+
+    Nothing throws and nothing logs; the feature the tag drives just stops applying to
+    anything. #culltag:transparent decides which blocks are see-through, so losing the file
+    would put every pane of glass back to hiding nametags with no sign of why.
+    """
+    for f in java_files():
+        src = f.read_text(encoding="utf-8")
+        for m in re.finditer(
+                r"TagKey\.create\(\s*Registries\.(\w+)\s*,\s*"
+                r"Identifier\.fromNamespaceAndPath\(\s*\"(\w+)\"\s*,\s*\"([\w/]+)\"", src):
+            registry, namespace, path = m.group(1).lower(), m.group(2), m.group(3)
+            expected = RESOURCES / "data" / namespace / "tags" / registry / f"{path}.json"
+            if not expected.exists():
+                errors.append(
+                    f"tag: {f.relative_to(ROOT)} uses #{namespace}:{path} but "
+                    f"{expected.relative_to(ROOT).as_posix()} does not exist "
+                    f"(a missing tag resolves to empty and the feature quietly stops working)"
+                )
+
+
+def check_occlusion_goes_through_sight_test() -> None:
+    """Level.clip asks "would I walk into this", which is not "can I see through this".
+
+    Glass, panes and iron bars all have collision, so a collision raycast hid the nametag of a
+    player standing behind a glass wall in plain view. SightTest exists to ask the right
+    question, and a stray Level.clip call would silently reintroduce the old answer for
+    whatever path it is on.
+    """
+    for f in java_files():
+        if f.name == "SightTest.java":
+            continue
+        src = strip_comments_and_strings(f.read_text(encoding="utf-8"))
+        for m in re.finditer(r"\.clip\(\s*new ClipContext|ClipContext\.Block\.", src):
+            line = src[: m.start()].count("\n") + 1
+            errors.append(
+                f"raw collision raycast: {f.relative_to(ROOT)}:{line} "
+                f"(use SightTest.clear; ClipContext.Block.COLLIDER treats glass as a wall)"
+            )
+
+
 # --------------------------------------------------------------- server-side only
 def check_no_client_classes() -> None:
     """The product claim is that players install nothing, so the jar is environment: server.
@@ -679,6 +722,8 @@ def main() -> int:
         check_no_literal_synched_data_ids,
         check_viewer_state_released,
         check_viewer_state_listed,
+        check_tag_files_exist,
+        check_occlusion_goes_through_sight_test,
         check_no_client_classes,
         check_config_alignment,
         check_config_fields_wired,

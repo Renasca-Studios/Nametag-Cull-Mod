@@ -11,10 +11,15 @@ import java.util.Properties;
 
 public final class CullTagConfig {
 
+    /** Vanilla stops drawing any entity nametag past 64 blocks, so checking further than that
+     *  is work that can never change what a player sees. It is the ceiling on max_distance
+     *  rather than a separate setting. */
+    public static final int VANILLA_NAMETAG_RANGE = 64;
+
     public static volatile boolean enabled            = true;
-    public static volatile int maxDistance        = 32;
-    public static volatile int checkIntervalTicks = 10;
-    public static volatile boolean crouchHidesNametag = true;
+    public static volatile int maxDistance            = 32;
+    public static volatile int checkIntervalTicks     = 10;
+    public static volatile boolean cullEntityNametags = true;
 
     private static final Path CONFIG_PATH = Path.of("config", "culltag.properties");
 
@@ -31,14 +36,13 @@ public final class CullTagConfig {
             }
         }
 
-        enabled            = parseBoolean(props, "enabled",              true,       logger);
-        maxDistance        = parseInt(props,    "max_distance",         32, 1, 512, logger);
-        checkIntervalTicks = parseInt(props,    "check_interval_ticks", 10, 1,  40, logger);
-        crouchHidesNametag = parseBoolean(props, "crouch_hides_nametag", true,       logger);
+        enabled            = parseBoolean(props, "enabled",               true, logger);
+        maxDistance        = parseInt(props, "max_distance", 32, 1, VANILLA_NAMETAG_RANGE, logger);
+        checkIntervalTicks = parseInt(props, "check_interval_ticks", 10, 1, 40, logger);
+        cullEntityNametags = parseBoolean(props, "cull_entity_nametags", true, logger);
 
         save(logger);
-        logger.info("[CullTag] Config loaded: enabled={}, max_distance={}, check_interval_ticks={}, crouch_hides_nametag={}",
-                enabled, maxDistance, checkIntervalTicks, crouchHidesNametag);
+        logger.info("[CullTag] Config loaded: {}", summary());
     }
 
     public static void reload(Logger logger) {
@@ -52,7 +56,7 @@ public final class CullTagConfig {
         return "enabled=" + enabled
                 + " max_distance=" + maxDistance
                 + " check_interval_ticks=" + checkIntervalTicks
-                + " crouch_hides_nametag=" + crouchHidesNametag;
+                + " cull_entity_nametags=" + cullEntityNametags;
     }
 
     private static boolean parseBoolean(Properties props, String key, boolean def, Logger logger) {
@@ -99,17 +103,23 @@ public final class CullTagConfig {
                 enabled=%b
 
                 # Maximum distance in blocks at which line-of-sight checks are performed.
-                # Players beyond this distance are treated as visible (vanilla behaviour).
+                # Anything further away is left exactly as vanilla draws it. Capped at 64
+                # because vanilla stops drawing nametags there anyway.
                 max_distance=%d
 
-                # How many server ticks between LOS sweeps.
-                # Lower values are more accurate but use more CPU.
+                # How many server ticks between sweeps.
+                # Lower values are more responsive but use more CPU.
                 # 10 = ~2 checks per second, 4 = ~5 checks per second.
                 check_interval_ticks=%d
 
-                # When true, a crouching player's nametag is hidden from everyone
-                # entirely, regardless of line of sight.
-                crouch_hides_nametag=%b
-                """.formatted(enabled, maxDistance, checkIntervalTicks, crouchHidesNametag);
+                # Also cull the nametags of named mobs and armour stands, which vanilla draws
+                # through walls just like a player's. Invisible ones are always left alone, so
+                # hologram armour stands stay readable.
+                cull_entity_nametags=%b
+
+                # Blocks that do not hide a nametag are decided by the #culltag:transparent
+                # block tag, not by this file. Override it with a datapack to add or remove
+                # blocks; by default it covers glass, panes, bars, chains and ladders.
+                """.formatted(enabled, maxDistance, checkIntervalTicks, cullEntityNametags);
     }
 }

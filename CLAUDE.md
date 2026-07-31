@@ -15,11 +15,24 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
+## Two things that are easy to undo by accident
+
+- **Occlusion goes through `SightTest`, never `Level.clip`.** A collision raycast asks "would
+  I walk into this", and glass, panes and iron bars all answer yes. What counts as opaque is
+  the `#culltag:transparent` block tag.
+- **Rays end at the nametag anchor, not the eyes.** That is what makes the test asymmetric and
+  costs two rays per player pair rather than one. It is deliberate; the tag floats above the
+  head and is the thing being hidden.
+
 ## Audit
 
 `python scripts/audit.py` before every commit that changes behaviour, and before every
 release. Exit code 1 on any ERROR. See `.claude/skills/culltag-audit/SKILL.md` for what each
 rule is protecting and why.
+
+`python scripts/functest.py` against a running `./gradlew runServer` for behaviour rather than
+tidiness: it drives Carpet fake players over rcon and asserts that nametags go away and, more
+importantly, come back. Booting the server only proves the mixin applies.
 
 ## Player-facing text
 

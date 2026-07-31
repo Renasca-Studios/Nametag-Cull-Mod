@@ -2,14 +2,17 @@
 
 ## Unreleased
 
+- Added nametag culling for named mobs and armour stands, which vanilla draws through walls exactly as it draws a player's, so a named animal gave a base away just as well. Controlled by `cull_entity_nametags` (on by default). Invisible entities are always left alone, so armour stands used as holograms stay readable through terrain.
+- Added the `#culltag:transparent` block tag, which decides what counts as see-through. Change it with a datapack instead of waiting for a release.
 - Added a language file, so every message CullTag prints can be translated. English is built into each message and is what a vanilla client shows, so nothing changes if you have no language file.
-- Changed to Fabric Loader 0.19.3 and Fabric API 0.155.2, still on Minecraft 26.1.2.
+- Changed nametags to stop being hidden behind glass. Glass, stained glass, every glass pane, iron bars, chains, ladders and scaffolding no longer hide anyone, because you can see straight through all of them and hiding a nametag behind them was the opposite of the point.
+- Changed the sight test to aim at the nametag rather than at the eyes. A tag peeking over a low wall now stays visible, and a tag hidden behind a ledge is hidden even when the player's eyes clear it.
+- Changed `max_distance` to cap at 64 rather than 512. Vanilla stops drawing nametags at 64 blocks, so anything beyond that was work that could never change what a player sees. Existing configs above 64 are clamped.
+- Changed the sweep to skip spectators and anything invisible before casting, since neither can have a nametag drawn.
+- Removed `crouch_hides_nametag`. It was a stealth mechanic rather than a fix for anything vanilla got wrong, and the only way to implement it cost the viewer the crouching player's real team colour. The `culltag_hidden` scoreboard team it left behind in your world is deleted automatically on first start.
 - Fixed nametags showing through walls until somebody moved. A pair that was already behind cover the first time CullTag saw them kept full vanilla nametags until their line of sight changed at least once, which meant logging in behind a wall, respawning behind a wall, walking into range from far away, or re-enabling the mod all left the wallhack intact.
-- Fixed players staying crouched and nameless at long range. Once a hidden player walked past `max_distance` the override was never taken back off, so they stayed hunched over with no nametag in plain open sight until they came back into range with a clear view.
-- Fixed crouch hiding quietly doing nothing after a player reconnected. The server still believed that player's client had been told about the hidden-nametag team, so it stopped sending them the packets that do the hiding.
-- Fixed a player who logged out while crouch-hidden coming back with their nametag still hidden.
-- Fixed nametag overrides being left behind on players who died or changed dimension.
-- Fixed `/culltag stats` counting crouch-hidden nametags for players who had already left.
+- Fixed nametags staying hidden at long range. Once a player walked past `max_distance` the override was never taken back off, so they stayed nameless in plain open sight until they came back into range with a clear view.
+- Fixed nametag overrides being left behind on players who died, changed dimension, or logged out and back in.
 - Fixed the jar claiming the MIT licence without carrying a copy of it.
 
 ## 1.1.1
