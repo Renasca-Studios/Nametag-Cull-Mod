@@ -25,10 +25,19 @@ Manage the mod entirely in-game (requires appropriate permissions):
 * `/culltag reload` - Hot-reload any changes made to `culltag.properties`.
 * `/culltag stats` - View real-time raycast performance metrics and active tracking data.
 
+## Documentation
+
+* **[Configuration](https://github.com/Overshock-Studios/Nametag-Cull-Mod/wiki/Configuration)** - every key with its default and range, and the block tag that decides what counts as see-through.
+* **[Commands](https://github.com/Overshock-Studios/Nametag-Cull-Mod/wiki/Commands)** - what each subcommand does, and how to read `/culltag stats`.
+* **[How It Works](https://github.com/Overshock-Studios/Nametag-Cull-Mod/wiki/How-It-Works)** - the sight test, the hiding trick, and what each costs.
+* **[Compatibility](https://github.com/Overshock-Studios/Nametag-Cull-Mod/wiki/Compatibility)** - other mods, modded blocks, and holograms.
+* **[Troubleshooting](https://github.com/Overshock-Studios/Nametag-Cull-Mod/wiki/Troubleshooting)** - what to check when a nametag is stuck, missing, or showing when it should not be.
+
 ## Requirements
 
 * **Environment:** Server-side ONLY (Drop it in your server's `mods` folder and you're done)
 * **Dependencies:** [Fabric API](https://modrinth.com/mod/fabric-api)
+* **Fabric Loader:** 0.19.3 or newer
 
 ## Known Incompatibilities
 
