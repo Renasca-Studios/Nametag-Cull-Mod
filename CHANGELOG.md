@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.2
 
 - Added nametag culling for named mobs and armour stands, which vanilla draws through walls exactly as it draws a player's, so a named animal gave a base away just as well. Controlled by `cull_entity_nametags` (on by default). Invisible entities are always left alone, so armour stands used as holograms stay readable through terrain.
 - Added the `#culltag:transparent` block tag, which decides what counts as see-through. Change it with a datapack instead of waiting for a release.
