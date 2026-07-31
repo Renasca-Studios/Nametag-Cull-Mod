@@ -3,6 +3,12 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# graphify knowledge graph (regenerate with `graphify update .`)
+graphify-out/
+
+# Per-machine Claude Code settings; the skill under .claude/skills/ is tracked
+.claude/settings.local.json
+
 # VS Code
 .vscode/
 *.code-workspace

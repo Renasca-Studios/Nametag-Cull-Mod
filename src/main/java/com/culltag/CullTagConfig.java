@@ -45,6 +45,16 @@ public final class CullTagConfig {
         load(logger);
     }
 
+    /** Operator diagnostics for /culltag reload. Every label here is the config file's own
+     *  key name rather than prose, so {@link CullTagText} passes the whole string through as
+     *  one opaque argument instead of breaking it into translatable pieces. */
+    public static String summary() {
+        return "enabled=" + enabled
+                + " max_distance=" + maxDistance
+                + " check_interval_ticks=" + checkIntervalTicks
+                + " crouch_hides_nametag=" + crouchHidesNametag;
+    }
+
     private static boolean parseBoolean(Properties props, String key, boolean def, Logger logger) {
         String raw = props.getProperty(key);
         if (raw == null) return def;

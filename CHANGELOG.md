@@ -1,30 +1,33 @@
 # Changelog
 
+## Unreleased
+
+- Added a language file, so every message CullTag prints can be translated. English is built into each message and is what a vanilla client shows, so nothing changes if you have no language file.
+- Changed to Fabric Loader 0.19.3 and Fabric API 0.155.2, still on Minecraft 26.1.2.
+- Fixed nametags showing through walls until somebody moved. A pair that was already behind cover the first time CullTag saw them kept full vanilla nametags until their line of sight changed at least once, which meant logging in behind a wall, respawning behind a wall, walking into range from far away, or re-enabling the mod all left the wallhack intact.
+- Fixed players staying crouched and nameless at long range. Once a hidden player walked past `max_distance` the override was never taken back off, so they stayed hunched over with no nametag in plain open sight until they came back into range with a clear view.
+- Fixed crouch hiding quietly doing nothing after a player reconnected. The server still believed that player's client had been told about the hidden-nametag team, so it stopped sending them the packets that do the hiding.
+- Fixed a player who logged out while crouch-hidden coming back with their nametag still hidden.
+- Fixed nametag overrides being left behind on players who died or changed dimension.
+- Fixed `/culltag stats` counting crouch-hidden nametags for players who had already left.
+- Fixed the jar claiming the MIT licence without carrying a copy of it.
+
 ## 1.1.1
 
-### Fixed
-- **Stuck-blocked LOS cache.** The previous "skip the raycast if cached as blocked and neither player moved >1 block" optimisation was unsound: a third party (other player, mob, opening door, broken block) could restore line of sight without either endpoint moving, leaving pairs stuck as `blocked` forever. Symptom: nametags hidden for players standing in clear sight of each other, and occasionally still visible after walking behind cover. The engine now recasts every pair every sweep — measured cost is well under a millisecond even at scale.
-- **`crouch_hides_nametag` actually hides nametags now.** The 1.1.0 implementation piggybacked on the LOS-blocked force-sneak mechanism, which only suppresses nametags through walls — vanilla still renders sneaking-player nametags at close range with clear LOS, so the feature had no visible effect for direct viewers. Replaced with a per-viewer scoreboard team override (`culltag_hidden`, `nametagVisibility=NEVER`) sent only to viewers who should not see the crouching player, leaving the actual server-side team membership untouched.
-- **`/culltag disable` failing to fully restore nametags.** Restoration now sends a clearSneaking packet for every (viewer, target) pair rather than only the tracked `hiddenIds` set — guarantees a full vanilla restore even after a hot jar swap, where the server-side tracking set is empty but clients may still hold force-sneak flags from a previous binary. The LOS cache is wiped so a subsequent re-enable fires fresh visibility-change callbacks instead of being suppressed by stale "same as last time" entries. `/culltag reload` that toggles `enabled` off does the same.
-
-### Added
-- New [CrouchHider](src/main/java/com/culltag/CrouchHider.java) module managing the per-viewer team packets for the crouch-hide feature.
-- `/culltag stats` now reports `LOS-hidden` and `crouch-hidden` counts separately.
-- `/culltag disable` restores both LOS and crouch overrides; message reports both counts.
-- Per-viewer restoration logging (`[CullTag] Restored N nametag(s) for viewer X`) plus an aggregate summary, for diagnosing client-side desync.
-- Declared [PassableFoliage](https://modrinth.com/mod/passable-foliage) as a `breaks` dependency — Fabric loader will refuse to start with both installed. Also documented the incompatibility in the README.
-
-### Removed
-- The `lastPos` movement-tracking map (no longer needed without the asymmetric cache skip).
-
-### Caveat
-- The per-viewer team trick overrides any real team `target` was already on, in `viewer`'s view only. If your server uses scoreboard teams for PvP coloring or friendly-fire indicators, crouching players will appear teamless to anyone they're hidden from. Disable `crouch_hides_nametag` if that's a problem.
+- Added separate line-of-sight and crouch counts to `/culltag stats`, and to the message `/culltag disable` prints.
+- Added [PassableFoliage](https://modrinth.com/mod/passable-foliage) as a declared incompatibility. It changes leaf collision on the client but not the server, which made nametags flicker near trees, so the loader now refuses to start with both mods installed rather than letting it happen.
+- Fixed nametags being hidden between players standing in clear sight of each other, and occasionally still visible after one of them walked behind cover. Sight was only rechecked when a player moved, so a door opening or a block breaking never brought a nametag back.
+- Fixed `crouch_hides_nametag` having no visible effect. Crouching players were still fully named to anyone with a clear view of them, which is exactly the case the setting is for. Note that while a player is hidden this way they appear to have no scoreboard team, so team colours are lost in that one viewer's eyes; turn the setting off if your server colours players by team.
+- Fixed `/culltag disable` leaving some nametags hidden, including after a hot jar swap.
 
 ## 1.1.0
 
-- Added `crouch_hides_nametag` config option (default `true`): crouching players have their nametag hidden from everyone entirely, independent of line of sight.
-- Added `README.md`.
+- Added `crouch_hides_nametag` (on by default): a crouching player's nametag is hidden from everyone, whether or not anything is in the way.
+- Added a README.
+- Changed `/culltag reload` to report the new setting alongside the existing ones.
 
 ## 1.0.0
 
-- Initial release.
+- Initial release. A player's nametag is hidden from anyone whose view of them is blocked by blocks, worked out entirely on the server, so players connect with unmodified clients and install nothing.
+- Added `/culltag enable`, `/culltag disable`, `/culltag reload` and `/culltag stats`.
+- Added `config/culltag.properties` with `enabled`, `max_distance` and `check_interval_ticks`.

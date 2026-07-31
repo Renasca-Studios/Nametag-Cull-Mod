@@ -1,34 +1,44 @@
 package com.culltag;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.Set;
 
 /**
- * Manages the per-player LOS cache and drives callbacks into {@link NametagManager}
- * when visibility between two players changes.
+ * Sweeps every pair of online players and pushes per-viewer nametag overrides when the line
+ * of sight between them changes.
  *
- * Optimisations:
- *  - Symmetric LOS: one raycast per unordered pair, result shared both ways.
+ * <p>The engine keeps no visibility state of its own. What a viewer's client has been told
+ * lives in exactly one place, the hidden-entity set on that viewer's connection
+ * ({@link NametagController}), and every decision is made by asking that set whether the
+ * override is already there. 1.1.1 kept two parallel maps keyed by UUID alongside that set;
+ * they were allowed to disagree, and each way they disagreed was a nametag stuck on or stuck
+ * off. Deriving from one set also means a reconnecting client, which has a fresh connection
+ * and therefore an empty set, is correctly treated as being in the vanilla state.
+ *
+ * <p>Optimisations:
+ * <ul>
+ *   <li>Symmetric LOS: one raycast per unordered pair, result applied both ways.</li>
+ *   <li>No temporal cache. Every in-range pair is recast every sweep. The 1.1.0 "skip the
+ *       raycast if this pair was blocked and neither endpoint moved" rule was unsound,
+ *       because a door opening or a block breaking restores sight without either endpoint
+ *       moving, and pairs got stuck as blocked forever. Sweeps measure well under a
+ *       millisecond, so correctness wins.</li>
+ * </ul>
  */
 public final class LineOfSightEngine {
 
-    // viewer UUID → target UUID → can viewer currently see target?
-    private static final Map<UUID, Map<UUID, Boolean>> cache = new ConcurrentHashMap<>();
-    private static final Map<UUID, Map<UUID, Boolean>> prev  = new ConcurrentHashMap<>();
-
     private static int tickAccum = 0;
 
-    // ── Perf counters ─────────────────────────────────────────────────────────
-    private static long totalSweeps    = 0;
-    private static long totalRaycasts  = 0;
-    private static double lastSweepMs  = 0;
+    // Perf counters ───────────────────────────────────────────────────────────
+    private static long totalSweeps   = 0;
+    private static long totalRaycasts = 0;
+    private static double lastSweepMs = 0;
     private static final double[] sweepRing = new double[100];
     private static int sweepRingIdx = 0;
 
@@ -41,86 +51,54 @@ public final class LineOfSightEngine {
         return new PerfStats(totalSweeps, totalRaycasts, lastSweepMs, count == 0 ? 0 : sum / count);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
     private LineOfSightEngine() {}
-
-    /** Wipes all cached visibility state. Call after disabling so a re-enable
-     *  fires fresh visibility-change callbacks instead of being suppressed
-     *  by stale "same as last time" entries. */
-    public static void clearCache() {
-        cache.clear();
-        prev.clear();
-    }
-
-    public static boolean canSee(UUID viewerUuid, UUID targetUuid) {
-        Map<UUID, Boolean> row = cache.get(viewerUuid);
-        if (row == null) return true;
-        return row.getOrDefault(targetUuid, true);
-    }
 
     public static void tick(List<ServerPlayer> players) {
         tickAccum++;
         if (tickAccum % CullTagConfig.checkIntervalTicks != 0) return;
-
         if (!CullTagConfig.enabled) return;
 
         long startNs = System.nanoTime();
         int raycasts = 0;
 
-        Set<UUID> live = new HashSet<>(players.size());
-        for (ServerPlayer p : players) live.add(p.getUUID());
-        cache.keySet().retainAll(live);
-        prev .keySet().retainAll(live);
-
         double maxDistSq = (double) CullTagConfig.maxDistance * CullTagConfig.maxDistance;
+        boolean crouchHiding = CullTagConfig.crouchHidesNametag;
 
         // Process each unordered pair exactly once.
         for (int i = 0; i < players.size(); i++) {
             ServerPlayer a = players.get(i);
+            Vec3 eyeA = a.getEyePosition();
 
             for (int j = i + 1; j < players.size(); j++) {
                 ServerPlayer b = players.get(j);
 
-                // Different dimensions — always hidden, no ray needed.
-                if (a.level() != b.level()) {
-                    handleResult(a, b, false);
-                    handleResult(b, a, false);
+                // In another dimension, or too far apart for the nametag to matter: drop any
+                // override we are holding rather than leaving it stuck on. 1.1.1 dropped the
+                // cache row here and left the client force-sneaked at range forever, so a
+                // player who walked past max_distance stayed crouched and nameless.
+                if (a.level() != b.level() || a.distanceToSqr(b) > maxDistSq) {
+                    release(a, b);
+                    release(b, a);
                     continue;
                 }
 
-                // Beyond max distance — evict from cache (vanilla will handle rendering).
-                if (a.distanceToSqr(b) > maxDistSq) {
-                    evict(a, b);
-                    evict(b, a);
-                    continue;
-                }
-
-                // Crouch-hide uses a per-viewer team override (NEVER nametag visibility)
-                // because the force-sneak mechanism doesn't suppress nametags at close range
-                // with clear LOS — vanilla still renders sneaking nametags then.
-                boolean aCrouchHidden = CullTagConfig.crouchHidesNametag && a.isCrouching();
-                boolean bCrouchHidden = CullTagConfig.crouchHidesNametag && b.isCrouching();
+                // Crouch-hide uses a per-viewer team override rather than the sneak flag,
+                // because vanilla still draws a sneaking player's nametag at close range with
+                // clear sight, which is exactly where the feature has to work.
+                boolean aCrouchHidden = crouchHiding && a.isCrouching();
+                boolean bCrouchHidden = crouchHiding && b.isCrouching();
                 CrouchHider.setHidden(a, b, bCrouchHidden);
                 CrouchHider.setHidden(b, a, aCrouchHidden);
 
-                // Both crouching — both nametags are team-hidden, no point raycasting.
-                if (aCrouchHidden && bCrouchHidden) {
-                    continue;
-                }
+                // Both nametags are already team-hidden, so the ray cannot change anything
+                // the players can see.
+                if (aCrouchHidden && bCrouchHidden) continue;
 
-                Vec3 eyeA = a.getEyePosition();
-                Vec3 eyeB = b.getEyePosition();
-
-                // Always recast. The previous "skip if cached blocked and neither moved"
-                // optimisation was unsound: a third party (other player, mob, opening door,
-                // broken block) can restore LOS without either endpoint moving, leaving the
-                // pair stuck as blocked forever. Sweeps are sub-millisecond — correctness wins.
                 raycasts++;
-                boolean visible = castRay(a, b, eyeA, eyeB);
+                boolean visible = castRay(a, eyeA, b.getEyePosition());
 
-                handleResult(a, b, visible);
-                handleResult(b, a, visible);
+                apply(a, b, visible);
+                apply(b, a, visible);
             }
         }
 
@@ -132,31 +110,59 @@ public final class LineOfSightEngine {
         sweepRingIdx = (sweepRingIdx + 1) % sweepRing.length;
     }
 
-    private static void evict(ServerPlayer viewer, ServerPlayer target) {
-        UUID tid = target.getUUID();
-        Map<UUID, Boolean> c = cache.get(viewer.getUUID());
-        Map<UUID, Boolean> p = prev .get(viewer.getUUID());
-        if (c != null) c.remove(tid);
-        if (p != null) p.remove(tid);
-    }
-
-    private static void handleResult(ServerPlayer viewer, ServerPlayer target, boolean nowVisible) {
-        UUID tid = target.getUUID();
-        Map<UUID, Boolean> viewerCache = cache.computeIfAbsent(viewer.getUUID(), k -> new ConcurrentHashMap<>());
-        Map<UUID, Boolean> viewerPrev  = prev .computeIfAbsent(viewer.getUUID(), k -> new ConcurrentHashMap<>());
-
-        boolean wasVisible = viewerPrev.getOrDefault(tid, nowVisible);
-        viewerCache.put(tid, nowVisible);
-        viewerPrev .put(tid, nowVisible);
-
-        if (nowVisible != wasVisible) {
-            NametagManager.onVisibilityChanged(viewer, target, nowVisible);
+    /**
+     * Drops every override online viewers are holding against a player who is leaving.
+     *
+     * <p>The sneak override needs no restore packet: the client is about to remove the entity
+     * anyway. The crouch override does, because scoreboard team membership is keyed by name
+     * and a client keeps its team roster across a player leaving, so without an explicit
+     * removal that player would come back already hidden.
+     */
+    public static void forgetPlayer(List<ServerPlayer> viewers, ServerPlayer gone) {
+        Integer goneId = gone.getId();
+        for (ServerPlayer viewer : viewers) {
+            if (viewer == gone) continue;
+            NametagManager.controller(viewer).culltag_getHiddenEntityIds().remove(goneId);
+            CrouchHider.setHidden(viewer, gone, false);
         }
     }
 
-    private static boolean castRay(ServerPlayer viewer, Entity target, Vec3 eye, Vec3 tgtEye) {
+    /**
+     * Drops every override recorded against an entity ID that no longer exists. A respawning
+     * player keeps their connection but becomes a brand new entity with a new ID, so the old
+     * ID would otherwise sit in every viewer's hidden set for the rest of the session.
+     */
+    public static void forgetEntity(List<ServerPlayer> viewers, int staleEntityId) {
+        Integer id = staleEntityId;
+        for (ServerPlayer viewer : viewers) {
+            NametagManager.controller(viewer).culltag_getHiddenEntityIds().remove(id);
+        }
+    }
+
+    /** Clears both overrides {@code viewer} holds against {@code target}. */
+    private static void release(ServerPlayer viewer, ServerPlayer target) {
+        apply(viewer, target, true);
+        CrouchHider.setHidden(viewer, target, false);
+    }
+
+    /**
+     * Brings the viewer's client into line with {@code visible}, sending a packet only when
+     * that is a change. The hidden set is the record of what was sent, so adding to it and
+     * sending cannot come apart.
+     */
+    private static void apply(ServerPlayer viewer, ServerPlayer target, boolean visible) {
+        Set<Integer> hidden = NametagManager.controller(viewer).culltag_getHiddenEntityIds();
+        Integer id = target.getId();
+        if (visible) {
+            if (hidden.remove(id)) NametagManager.reveal(viewer, target);
+        } else {
+            if (hidden.add(id)) NametagManager.hide(viewer, target);
+        }
+    }
+
+    private static boolean castRay(ServerPlayer viewer, Vec3 from, Vec3 to) {
         BlockHitResult hit = viewer.level().clip(new ClipContext(
-                eye, tgtEye,
+                from, to,
                 ClipContext.Block.COLLIDER,
                 ClipContext.Fluid.NONE,
                 viewer));

@@ -5,7 +5,11 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
+
+import java.util.List;
+import java.util.Locale;
 
 public final class CullTagCommand {
 
@@ -29,20 +33,17 @@ public final class CullTagCommand {
     private static int enable(CommandContext<CommandSourceStack> ctx) {
         CullTagConfig.enabled = true;
         CullTagConfig.save(CullTagMod.LOGGER);
-        ctx.getSource().sendSuccess(() -> Component.literal("[CullTag] Enabled."), true);
+        ctx.getSource().sendSuccess(CullTagText::enabled, true);
         return 1;
     }
 
     private static int disable(CommandContext<CommandSourceStack> ctx) {
         CullTagConfig.enabled = false;
         CullTagConfig.save(CullTagMod.LOGGER);
-        var players = ctx.getSource().getServer().getPlayerList().getPlayers();
+        List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
         int restored = NametagManager.restoreAll(players);
         int unhidden = CrouchHider.restoreAll(players);
-        LineOfSightEngine.clearCache();
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "[CullTag] Disabled — restored " + restored + " LOS override(s), "
-                + unhidden + " crouch override(s), LOS cache cleared."), true);
+        ctx.getSource().sendSuccess(() -> CullTagText.disabled(restored, unhidden), true);
         return 1;
     }
 
@@ -50,30 +51,31 @@ public final class CullTagCommand {
         boolean wasEnabled = CullTagConfig.enabled;
         CullTagConfig.reload(CullTagMod.LOGGER);
         if (wasEnabled && !CullTagConfig.enabled) {
-            var players = ctx.getSource().getServer().getPlayerList().getPlayers();
+            List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
             NametagManager.restoreAll(players);
             CrouchHider.restoreAll(players);
-            LineOfSightEngine.clearCache();
         }
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "[CullTag] Config reloaded: enabled=" + CullTagConfig.enabled
-                + ", max_distance=" + CullTagConfig.maxDistance
-                + ", check_interval_ticks=" + CullTagConfig.checkIntervalTicks
-                + ", crouch_hides_nametag=" + CullTagConfig.crouchHidesNametag), true);
+        ctx.getSource().sendSuccess(() -> CullTagText.reloaded(CullTagConfig.summary()), true);
         return 1;
     }
 
     private static int stats(CommandContext<CommandSourceStack> ctx) {
         LineOfSightEngine.PerfStats s = LineOfSightEngine.getStats();
-        int hidden = NametagManager.countHidden(
-                ctx.getSource().getServer().getPlayerList().getPlayers());
-        ctx.getSource().sendSuccess(() -> Component.literal(
-                "[CullTag] LOS sweeps: " + s.totalSweeps()
-                + " | raycasts: " + s.totalRaycasts()
-                + " | last sweep: " + String.format("%.3f ms", s.lastSweepMs())
-                + " | avg sweep: "  + String.format("%.3f ms", s.avgSweepMs())
-                + " | LOS-hidden: " + hidden
-                + " | crouch-hidden: " + CrouchHider.countHidden()), false);
+        List<ServerPlayer> players = ctx.getSource().getServer().getPlayerList().getPlayers();
+        Component message = CullTagText.stats(
+                s.totalSweeps(),
+                s.totalRaycasts(),
+                millis(s.lastSweepMs()),
+                millis(s.avgSweepMs()),
+                NametagManager.countHidden(players),
+                CrouchHider.countHidden(players));
+        ctx.getSource().sendSuccess(() -> message, false);
         return 1;
+    }
+
+    /** Locale.ROOT so the decimal separator does not follow the server's locale; the number
+     *  is a positional argument that a translation slots in unchanged. */
+    private static String millis(double value) {
+        return String.format(Locale.ROOT, "%.3f", value);
     }
 }

@@ -20,7 +20,7 @@
   ],
   "accessWidener": "culltag.accesswidener",
   "depends": {
-    "fabricloader": ">=0.19.2",
+    "fabricloader": ">=0.19.3",
     "minecraft": "~26.1",
     "java": ">=25",
     "fabric-api": "*"

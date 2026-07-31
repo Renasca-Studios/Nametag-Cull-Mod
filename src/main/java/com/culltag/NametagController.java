@@ -5,23 +5,24 @@ import net.minecraft.network.protocol.Packet;
 import java.util.Set;
 
 /**
- * Duck-typing interface mixed into {@link net.minecraft.server.network.ServerGamePacketListenerImpl}
- * by {@link com.culltag.mixin.ServerGamePacketListenerImplMixin}.
+ * Duck-typing interface mixed into {@link net.minecraft.server.network.ServerCommonPacketListenerImpl}
+ * by {@link com.culltag.mixin.ServerCommonPacketListenerImplMixin}, and therefore present on
+ * every {@code ServerGamePacketListenerImpl}.
  *
- * <p>Exposes two capabilities to {@link NametagManager}:
- * <ol>
- *   <li>{@link #culltag_getHiddenEntityIds()} — entity IDs for which the sneaking-flag
- *       override is active. {@link com.culltag.mixin.ServerCommonPacketListenerImplMixin}
- *       consults this on every outgoing metadata packet.</li>
- *   <li>{@link #culltag_sendDirect(Packet)} — sends a packet via the raw
- *       {@link net.minecraft.network.Connection}, bypassing the mixin intercept so
- *       we don't recurse when pushing override/restore packets.</li>
- * </ol>
+ * <p>This connection is the single source of truth for what CullTag has told one client.
+ * Holding the same answer in a second map keyed by UUID is what 1.1.1 did, and every way the
+ * two were allowed to disagree turned into a nametag stuck on or stuck off. Both sets below
+ * die with the connection, so a reconnecting player starts from the vanilla state that their
+ * fresh client is actually in.
  */
 public interface NametagController {
 
     /** Entity IDs whose outgoing metadata is currently being rewritten to force sneaking. */
     Set<Integer> culltag_getHiddenEntityIds();
+
+    /** Player names currently placed on the {@link CrouchHider#TEAM_NAME} team in this
+     *  client's view only. Keyed by name because scoreboard team membership is. */
+    Set<String> culltag_getCrouchHiddenNames();
 
     /** Sends {@code packet} to the client, bypassing the mixin's own intercept. */
     void culltag_sendDirect(Packet<?> packet);

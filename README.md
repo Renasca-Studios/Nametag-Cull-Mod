@@ -12,7 +12,7 @@ Because all calculations and packet interceptions happen entirely on the server,
 * **Zero Client Setup:** 100% server-side. Vanilla and modded clients both see the correct, culled nametags automatically.
 * **Engineered for Performance:** Raycasting can be heavy, so CullTag is built to protect your server's TPS. It utilizes **symmetric LOS** (calculating only one ray per pair of players instead of two) and only runs a sweep every few ticks - typical cost is well under a millisecond.
 * **Crouch to Hide:** Crouching players have their nametag hidden from everyone entirely, regardless of line of sight - great for staying unseen. Enabled by default and fully optional.
-* **Live Configuration:** Tweak maximum tracking distance, tick frequency, and crouch-hiding in `config/culltag.properties`.
+* **Live Configuration:** `config/culltag.properties` holds `enabled`, `max_distance`, `check_interval_ticks` and `crouch_hides_nametag`.
 * **Hot-Swappable:** Toggle the entire system or reload config changes live without ever needing to restart your server.
 * **Built-in Profiling:** Monitor exactly how the mod is operating under the hood with built-in performance metrics.
 
