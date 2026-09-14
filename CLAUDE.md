@@ -1,6 +1,6 @@
 # CullTag
 
-100% server-side Fabric mod for Minecraft 26.1.2. It hides player nametags that vanilla
+100% server-side Fabric mod for Minecraft 26.2. It hides player nametags that vanilla
 would otherwise render through solid blocks, by raycasting between players on the server and
 rewriting the clientbound packets. Players connect with unmodified clients, so every visible
 string the mod produces is read by a client that has never heard of CullTag.

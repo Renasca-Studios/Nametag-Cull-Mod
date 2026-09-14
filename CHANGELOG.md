@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.1.2
+## 1.1.2 (Minecraft 26.2)
+
+- First release for Minecraft 26.2.
+
+## 1.1.2 (Minecraft 26.1.2)
 
 - Added nametag culling for named mobs and armour stands. A named animal or a labelled armour stand gave a base away through terrain exactly like a player did. Invisible ones are left alone, so hologram armour stands stay readable. Turn it off with `cull_entity_nametags`.
 - Added `#culltag:transparent`, a block tag listing everything you can see through. Change it with a datapack to cover blocks from other mods, or to make something hide nametags that currently does not.
