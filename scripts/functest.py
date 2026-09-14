@@ -90,7 +90,7 @@ def hidden_count(r):
 
 def main():
     r = Rcon()
-    print(r.cmd("gamerule sendCommandFeedback true"))
+    print(r.cmd("gamerule minecraft:send_command_feedback true"))
 
     # A flat arena in the sky so no terrain interferes with the rays.
     r.cmd("forceload add 0 0 16 16")
